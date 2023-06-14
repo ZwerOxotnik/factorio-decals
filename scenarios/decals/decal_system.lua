@@ -160,10 +160,9 @@ local function remove_my_decal_command(cmd)
 
 	-- remove decals of the player
 	local id = players_decal[player_index]
-	if id then
-		rendering.destroy(id)
-		players_decal[player_index] = nil
-	end
+	if id == nil then return end
+	rendering.destroy(id)
+	players_decal[player_index] = nil
 end
 
 --#endregion
