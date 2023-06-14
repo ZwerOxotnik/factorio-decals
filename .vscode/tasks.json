@@ -18,5 +18,12 @@
 			"args": ["${file}"],
 			"group": "test"
 		},
+		{
+			"label": "Create decal list",
+			"type": "shell",
+			"command": "bash",
+			"args": [".scripts/create_decal_list.sh", "scenarios/decals/decals"],
+			"group": "test",
+		},
 	]
 }
