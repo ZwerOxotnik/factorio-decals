@@ -1,4 +1,9 @@
 ﻿---------------------------------------------------------------------------------------------------
+Version: 2.0.2
+Date: 2023-06-14
+  Scripting:
+    - There's no need for data.lua for other mods (but I do recommend to create empty one at least), this mod auto-requires "decal_list.lua"
+---------------------------------------------------------------------------------------------------
 Version: 2.0.1
 Date: 2023-06-14
   Changes:

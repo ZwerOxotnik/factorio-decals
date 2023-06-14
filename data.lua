@@ -26,7 +26,12 @@ decals_mod.add_decal = function(_data)
 end
 
 
-for k, _data in pairs(require("decal_list")) do
-	---@diagnostic disable-next-line: redundant-parameter
-	decals_mod.add_decal(_data, k)
+for mod_name in pairs(mods) do
+	local is_ok, decal_list = pcall(require, string.format("__%s__/decal_list", mod_name))
+	if is_ok then
+		for k, _data in pairs(decal_list) do
+			---@diagnostic disable-next-line: redundant-parameter
+			decals_mod.add_decal(_data, k)
+		end
+	end
 end
