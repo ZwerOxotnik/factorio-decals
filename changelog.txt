@@ -9,7 +9,7 @@ Date: 2023-06-14
   Features:
     - Added new commands: /remove-all-decals /remove-my-decals
     - Works as a mod also now
-    - Supports external images (provide decal_list.lua in root mod/scenario folder like __decals__/decal_list.lua and __decals__/scenarios/decals/decal_list.lua does: return table<string, string>)
+    - Supports external images (provide decal_list.lua in root mod/scenario folder like __decals__/decal_list.lua and __decals__/scenarios/decals/decal_list.lua does)
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.1
 Date: 2023-05-31
