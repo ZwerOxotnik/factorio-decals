@@ -1,4 +1,12 @@
 ﻿---------------------------------------------------------------------------------------------------
+Version: 2.1.0
+Date: 2023-06-16
+  Features:
+    - Players can spawn several images now. Max is 50
+    - Added new command: /remove-near-decals
+  Changes:
+    - Added integration with EasyAPI
+---------------------------------------------------------------------------------------------------
 Version: 2.0.2
 Date: 2023-06-14
   Scripting:
