@@ -77,6 +77,12 @@ M.detect_desync = function(receiver)
 end
 
 M.remove_invalid_data = function()
+	for _, player in pairs(game.players) do
+		if player.valid and not player.connected then
+			M.delete_decals_list_gui(player)
+		end
+	end
+
 	for player_index, decals in pairs(players_decals) do
 		local player = game.get_player(player_index)
 		local player_decals = players_decals[player_index]
@@ -128,8 +134,14 @@ local sprite_data = {
     surface = nil
 }
 ---@param player LuaPlayer
----@param decal_path string
-local function draw_decal(player, decal_path)
+---@param decal_path string?
+M.draw_decal = function(player, decal_path)
+	if not decal_path then return end
+	if not game.is_valid_sprite_path(decal_path) then
+		log(string.format("%s is invalid sprite path", decal_path))
+		return
+	end
+
 	local player_index = player.index
 	local player_decals = players_decals[player_index]
 	if player_decals == nil then
@@ -145,6 +157,78 @@ local function draw_decal(player, decal_path)
 	sprite_data.surface = player.surface
 	sprite_data.target = player.position
 	player_decals[#player_decals+1] = draw_sprite(sprite_data)
+end
+
+---@param player LuaPlayer
+M.delete_decals_list_gui = function(player)
+	local frame = player.gui.screen.decals_list_frame
+	if frame then
+		frame.destroy()
+	end
+end
+
+---@param player LuaPlayer
+M.switch_decals_gui = function(player)
+	local screen = player.gui.screen
+	local main_frame = screen.decals_list_frame
+	if main_frame then
+		main_frame.destroy()
+		return
+	end
+
+	main_frame = screen.add{type = "frame", name = "decals_list_frame", direction = "vertical"} --style = "borderless_frame"
+	main_frame.location = {x = 300, y = 70}
+	main_frame.style.maximal_height = 500
+
+	local top_flow = main_frame.add{type = "flow"}
+	top_flow.style.horizontal_spacing = 0
+	top_flow.add{
+		type = "label",
+		style = "frame_title",
+		caption = {"decals.Decals"},
+		ignored_by_interaction = true
+	}
+	local drag_handler = top_flow.add{type = "empty-widget", name = "drag_handler", style = "draggable_space"}
+	drag_handler.drag_target = main_frame
+	drag_handler.style.horizontally_stretchable = true
+	drag_handler.style.vertically_stretchable   = true
+	drag_handler.style.margin = 0
+	top_flow.add{
+		hovered_sprite = "utility/close_black",
+		clicked_sprite = "utility/close_black",
+		sprite = "utility/close_white",
+		style = "frame_action_button",
+		type = "sprite-button",
+		name = "DECALS_MOD_close"
+	}
+
+	local scroll_pane = main_frame.add({
+		type = "scroll-pane",
+		name = "scroll-pane",
+		horizontal_scroll_policy = "never"
+	})
+	local decals_list_table = scroll_pane.add{type = "table", name = "decals_list_table", column_count = 5}
+	decals_list_table.style.horizontal_spacing = 0
+	decals_list_table.style.vertical_spacing   = 0
+
+	local flow = {type = "flow", name = ""}
+	local button = {type = "sprite-button", name = "spawn_decal", sprite = ""}
+	for name, decal_path in pairs(DECALS_PATH) do
+		if not game.is_valid_sprite_path(decal_path) then
+			goto continue
+		end
+		flow.name = name
+		local _flow = decals_list_table.add(flow)
+		_flow.style.natural_width  = 0
+		_flow.style.natural_height = 0
+		_flow.style.horizontally_stretchable = true
+		_flow.style.vertically_stretchable = true
+		button.sprite = decal_path
+		local button_style = _flow.add(button).style
+		button_style.height = 70
+		button_style.width  = 70
+		:: continue ::
+	end
 end
 
 ---@return number
@@ -174,6 +258,32 @@ M.on_player_joined_game = function(event)
 	end
 end
 
+M.on_player_left_game = function(event)
+	local player = game.get_player(event.player_index)
+	if not (player and player.valid) then return end
+
+	M.delete_decals_list_gui(player)
+end
+
+
+local GUIS = {
+	DECALS_MOD_close = function(element)
+		element.parent.parent.destroy()
+	end,
+	spawn_decal = function(element, player)
+		local decal_name = element.parent.name
+		M.draw_decal(player, DECALS_PATH[decal_name])
+	end,
+}
+M.on_gui_click = function(event)
+	local element = event.element
+	if not (element and element.valid) then return end
+	local f = GUIS[element.name]
+	if f then
+		f(element, game.get_player(event.player_index))
+	end
+end
+
 local function decal_command(cmd)
     local player_index = cmd.player_index
 	local player = game.get_player(player_index)
@@ -199,12 +309,7 @@ local function decal_command(cmd)
         return
     end
 
-	if not game.is_valid_sprite_path(decal_path) then
-		log(string.format("%s is invalid sprite path", decal_path))
-		return
-	end
-
-	draw_decal(player, decal_path)
+	M.draw_decal(player, decal_path)
 end
 
 local function remove_all_decals_command(cmd)
@@ -270,6 +375,18 @@ local function remove_near_decal_command(cmd)
 		end
 		:: continue ::
     end
+end
+
+local function decals_gui_command(cmd)
+	local player_index = cmd.player_index
+	if player_index == 0 then
+		log("No support for server")
+		return
+	end
+	local player = game.get_player(player_index)
+	if not (player and player.valid) then return end
+
+	M.switch_decals_gui(player)
 end
 
 --#endregion
@@ -343,12 +460,15 @@ M.on_configuration_changed = M._on_configuration_changed
 
 M.events = {
 	[defines.events.on_player_joined_game] = M.on_player_joined_game,
+	[defines.events.on_player_left_game]   = M.on_player_left_game,
 	[defines.events.on_player_removed] = M.delete_player_data,
+	[defines.events.on_gui_click] = M.on_gui_click,
 }
 commands.add_command("decal", {"decals-commands.decal"}, decal_command)
 commands.add_command("remove-all-decals", {"decals-commands.remove-all-decals"}, remove_all_decals_command)
 commands.add_command("remove-my-decals", {"decals-commands.remove-my-decals"}, remove_my_decal_command)
 commands.add_command("remove-near-decals", {"decals-commands.remove-near-decals"}, remove_near_decal_command)
+commands.add_command("decals-gui", {"decals-commands.decals-gui"}, decals_gui_command)
 
 
 --#endregion
