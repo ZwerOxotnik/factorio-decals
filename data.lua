@@ -30,7 +30,10 @@ for mod_name in pairs(mods) do
 	local is_ok, decal_list = pcall(require, string.format("__%s__/decal_list", mod_name))
 	if is_ok and type(decal_list) == "table" then
 		for k, _data in pairs(decal_list) do
-			if type(_data) == "table" then
+			if type(_data) == "table"
+				and type(_data.type) == "string"
+				and type(_data.name) == "string"
+			then
 				---@diagnostic disable-next-line: redundant-parameter
 				decals_mod.add_decal(_data, k)
 			end
