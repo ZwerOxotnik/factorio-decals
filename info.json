@@ -1,6 +1,6 @@
 {
 	"name": "decals",
-	"version": "2.2.0",
+	"version": "2.2.1",
 	"factorio_version": "1.1",
 	"title": "Decals [scenario/mod]",
 	"author": "ZwerOxotnik",
@@ -8,7 +8,7 @@
 	"homepage": "https://www.reddit.com/r/ZwerOxotnik/",
 	"description": "Spawns an image on map.\nUse command: /decal [decal name]",
 	"dependencies": [
-		"? zk-lib >= 0.10.0",
+		"? zk-lib",
 		"? EasyAPI",
 		"? gvv"
 	]

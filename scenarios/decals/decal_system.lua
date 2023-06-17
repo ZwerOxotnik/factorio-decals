@@ -25,16 +25,20 @@ local get_render_target = rendering.get_target
 local DECALS_PATH = {}
 for mod_name in pairs(script.active_mods) do
 	local is_ok, decal_list = pcall(require, string.format("__%s__/decal_list", mod_name))
-	if is_ok then
+	if is_ok and type(decal_list) == "table" then
 		for name, path in pairs(decal_list) do
-			DECALS_PATH[name] = path
+			if type(name) == "string" and type(path) == "string" then
+				DECALS_PATH[name] = path
+			end
 		end
 	end
 end
 local is_ok, decal_list = pcall(require, "__level__/decal_list")
-if is_ok then
+if is_ok and type(decal_list) == "table" then
 	for name, path in pairs(decal_list) do
-		DECALS_PATH[name] = path
+		if type(name) == "string" and type(path) == "string" then
+			DECALS_PATH[name] = path
+		end
 	end
 end
 --#endregion
@@ -212,17 +216,18 @@ M.switch_decals_gui = function(player)
 	decals_list_table.style.vertical_spacing   = 0
 
 	local flow = {type = "flow", name = ""}
-	local button = {type = "sprite-button", name = "spawn_decal", sprite = ""}
-	for name, decal_path in pairs(DECALS_PATH) do
+	local button = {type = "sprite-button", name = "spawn_decal", tooltip = "", sprite = ""}
+	for decal_name, decal_path in pairs(DECALS_PATH) do
 		if not game.is_valid_sprite_path(decal_path) then
 			goto continue
 		end
-		flow.name = name
+		flow.name = decal_name
 		local _flow = decals_list_table.add(flow)
 		_flow.style.natural_width  = 0
 		_flow.style.natural_height = 0
 		_flow.style.horizontally_stretchable = true
 		_flow.style.vertically_stretchable = true
+		button.tooltip = decal_name
 		button.sprite = decal_path
 		local button_style = _flow.add(button).style
 		button_style.height = 70
