@@ -18,8 +18,6 @@ local players_decals
 
 --#region Constants
 local destroy_render = rendering.destroy
-local draw_sprite = rendering.draw_sprite
-local get_render_target = rendering.get_target
 
 ---@type table<string, string>
 local DECALS_PATH = {}
@@ -160,7 +158,7 @@ M.draw_decal = function(player, decal_path)
 	sprite_data.sprite = decal_path
 	sprite_data.surface = player.surface
 	sprite_data.target = player.position
-	player_decals[#player_decals+1] = draw_sprite(sprite_data)
+	player_decals[#player_decals+1] = rendering.draw_sprite(sprite_data)
 end
 
 ---@param player LuaPlayer
@@ -353,6 +351,7 @@ local function remove_near_decal_command(cmd)
 	local player = game.get_player(player_index)
 	if not (player and player.valid) then return end
 
+	local player_surface = player.surface
 	local player_position = player.position
 	for _player_index, decals in pairs(players_decals) do
 		local _player = game.get_player(_player_index)
@@ -361,13 +360,14 @@ local function remove_near_decal_command(cmd)
 			goto continue
 		end
 
+		local get_render_target = rendering.get_target
+		local get_render_surface = rendering.get_surface
 		for i=#decals, 1, -1 do
 			local decal_id = decals[i]
 			if not rendering.is_valid(decal_id) then
 				table.remove(decals, i)
-			else
+			elseif player_surface == get_render_surface(decal_id) then
 				local render_target = get_render_target(decals[i])
-
 				local distance = get_distance(player_position, render_target.position)
 				if distance <= 15 then
 					destroy_render(decal_id)
