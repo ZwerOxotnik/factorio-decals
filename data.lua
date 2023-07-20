@@ -34,6 +34,9 @@ for mod_name in pairs(mods) do
 				and type(_data.type) == "string"
 				and type(_data.name) == "string"
 			then
+				if _data.name:sub(1,1) ~= "_" and _data.name:sub(2,2) ~= "_" then
+					_data.name = string.format("__%s__/%s", mod_name, _data.name)
+				end
 				---@diagnostic disable-next-line: redundant-parameter
 				decals_mod.add_decal(_data, k)
 			end
