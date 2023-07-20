@@ -1,8 +1,13 @@
 ﻿---------------------------------------------------------------------------------------------------
-Version: 2.2.4
+Version: 2.2.5
 Date: 2023-07-20
   Scripting:
     - Detects and fixes incorrect paths of sprites during the data stage
+---------------------------------------------------------------------------------------------------
+Version: 2.2.4
+Date: 2023-07-20
+  Scripting:
+    - ~~Detects and fixes incorrect paths of sprites during the data stage~~
 ---------------------------------------------------------------------------------------------------
 Version: 2.2.3
 Date: 2023-06-22
