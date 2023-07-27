@@ -10,14 +10,16 @@ local M = {}
 
 
 --#region Global data
----@type table<string, integer[]>
+---@type table<string, table>
 local mod_data
+---@type table<uint, uint64>
 local players_decals
 --#endregion
 
 
 --#region Constants
-local destroy_render = rendering.destroy
+local destroy_render  = rendering.destroy
+local is_valid_render = rendering.is_valid
 
 ---@type table<string, string>
 local DECALS_PATH = {}
@@ -48,6 +50,14 @@ end
 ---@param s string
 local function trim(s)
 	return s:match'^%s*(.*%S)' or ''
+end
+
+
+---@return number
+local function get_distance(start, stop)
+	local xdiff = start.x - stop.x
+	local ydiff = start.y - stop.y
+	return (xdiff * xdiff + ydiff * ydiff)^0.5
 end
 
 
@@ -93,7 +103,7 @@ M.remove_invalid_data = function()
 			local decal_id = decals[i]
 			if not is_player_valid then
 				destroy_render(decal_id)
-			elseif not rendering.is_valid(decal_id) then
+			elseif not is_valid_render(decal_id) then
 				destroy_render(decal_id)
 				table.remove(player_decals, i)
 			end
@@ -119,15 +129,52 @@ M.remove_decals = function()
 	players_decals = mod_data.players_decal
 end
 
+
 ---@param player_index integer
-M.remove_player_decals = function(player_index)
+function M.remove_all_player_decals(player_index)
 	local decals = players_decals[player_index]
 	if not decals then return end
 	for i=1, #decals do
-		rendering.destroy(decals[i])
+		destroy_render(decals[i])
 	end
 	players_decals[player_index] = nil
 end
+
+
+---@param player LuaPlayer
+---@param radius number?
+M.remove_player_decals = function(player, radius)
+	if radius == nil then
+		M.remove_all_player_decals(player.index)
+		return
+	end
+
+	local player_index = player.index
+	local decals = players_decals[player_index]
+	if not decals then return end
+	local player_surface  = player.surface
+	local player_position = player.position
+	local get_render_target  = rendering.get_target
+	local get_render_surface = rendering.get_surface
+	for i=#decals, 1, -1 do
+		local decal_id = decals[i]
+		if not is_valid_render(decal_id) then
+			table.remove(decals, i)
+		elseif player_surface == get_render_surface(decal_id) then
+			local render_target = get_render_target(decals[i])
+			local distance = get_distance(player_position, render_target.position)
+			if distance <= radius then
+				destroy_render(decal_id)
+				table.remove(decals, i)
+			end
+		end
+	end
+
+	if next(decals) == nil then
+		players_decals[player_index] = nil
+	end
+end
+
 
 local sprite_data = {
 	sprite = "",
@@ -161,6 +208,7 @@ M.draw_decal = function(player, decal_path)
 	player_decals[#player_decals+1] = rendering.draw_sprite(sprite_data)
 end
 
+
 ---@param player LuaPlayer
 M.delete_decals_list_gui = function(player)
 	local frame = player.gui.screen.decals_list_frame
@@ -168,6 +216,7 @@ M.delete_decals_list_gui = function(player)
 		frame.destroy()
 	end
 end
+
 
 ---@param player LuaPlayer
 M.switch_decals_gui = function(player)
@@ -234,23 +283,19 @@ M.switch_decals_gui = function(player)
 	end
 end
 
----@return number
-local function get_distance(start, stop)
-	local xdiff = start.x - stop.x
-	local ydiff = start.y - stop.y
-	return (xdiff * xdiff + ydiff * ydiff)^0.5
-end
-
 --#endregion
 
 
 --#region Events
 
 
-M.delete_player_data = function(event)
-	M.remove_player_decals(event.player_index)
+---@param event EventData.on_player_removed
+M.on_player_removed = function(event)
+	M.remove_all_player_decals(event.player_index)
 end
 
+
+---@param event EventData.on_player_joined_game
 M.on_player_joined_game = function(event)
 	local player = game.get_player(event.player_index)
 	if not (player and player.valid) then return end
@@ -261,6 +306,8 @@ M.on_player_joined_game = function(event)
 	end
 end
 
+
+---@param event EventData.on_player_left_game
 M.on_player_left_game = function(event)
 	local player = game.get_player(event.player_index)
 	if not (player and player.valid) then return end
@@ -278,6 +325,7 @@ local GUIS = {
 		M.draw_decal(player, DECALS_PATH[decal_name])
 	end,
 }
+---@param event EventData.on_gui_click
 M.on_gui_click = function(event)
 	local element = event.element
 	if not (element and element.valid) then return end
@@ -333,23 +381,45 @@ end
 local function remove_my_decal_command(cmd)
 	local player_index = cmd.player_index
 	if player_index == 0 then
-		log("No support for server")
+		print("This command does nothing via rcon")
 		return
 	end
 	local player = game.get_player(player_index)
 	if not (player and player.valid) then return end
 
-	M.remove_player_decals(player_index)
+	local parameter = cmd.parameter
+	local radius
+    if parameter then
+        parameter = trim(parameter)
+		radius = tonumber(parameter)
+    end
+	if radius and radius < 0 then
+		return
+	end
+
+	M.remove_player_decals(player, radius)
 end
 
 local function remove_near_decal_command(cmd)
 	local player_index = cmd.player_index
 	if player_index == 0 then
-		log("No support for server")
+		print("This command does nothing via rcon")
 		return
 	end
 	local player = game.get_player(player_index)
 	if not (player and player.valid) then return end
+
+	local parameter = cmd.parameter
+	local radius
+    if parameter then
+        parameter = trim(parameter)
+		radius = tonumber(parameter)
+    end
+	if radius == nil then
+		radius = 15
+	elseif radius < 0 then
+		return
+	end
 
 	local player_surface = player.surface
 	local player_position = player.position
@@ -364,12 +434,12 @@ local function remove_near_decal_command(cmd)
 		local get_render_surface = rendering.get_surface
 		for i=#decals, 1, -1 do
 			local decal_id = decals[i]
-			if not rendering.is_valid(decal_id) then
+			if not is_valid_render(decal_id) then
 				table.remove(decals, i)
 			elseif player_surface == get_render_surface(decal_id) then
 				local render_target = get_render_target(decals[i])
 				local distance = get_distance(player_position, render_target.position)
-				if distance <= 15 then
+				if distance <= radius then
 					destroy_render(decal_id)
 					table.remove(decals, i)
 				end
@@ -385,7 +455,7 @@ end
 local function decals_gui_command(cmd)
 	local player_index = cmd.player_index
 	if player_index == 0 then
-		log("No support for server")
+		print("This command does nothing via rcon")
 		return
 	end
 	local player = game.get_player(player_index)
@@ -408,7 +478,7 @@ end
 M.update_global_data = function()
 	global.decals = global.decals or {}
 	mod_data = global.decals
-    ---@type table<integer, integer>
+    ---@type table<uint, uint64>
 	mod_data.players_decals = mod_data.players_decals or {}
 
 	M.link_data()
@@ -466,7 +536,7 @@ M.on_configuration_changed = M._on_configuration_changed
 M.events = {
 	[defines.events.on_player_joined_game] = M.on_player_joined_game,
 	[defines.events.on_player_left_game]   = M.on_player_left_game,
-	[defines.events.on_player_removed] = M.delete_player_data,
+	[defines.events.on_player_removed] = M.on_player_removed,
 	[defines.events.on_gui_click] = M.on_gui_click,
 }
 commands.add_command("decal", {"decals-commands.decal"}, decal_command)
