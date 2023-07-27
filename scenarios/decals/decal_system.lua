@@ -393,7 +393,7 @@ local function remove_my_decal_command(cmd)
         parameter = trim(parameter)
 		radius = tonumber(parameter)
     end
-	if radius and radius < 0 then
+	if radius and radius <= 0 then
 		return
 	end
 
@@ -417,7 +417,7 @@ local function remove_near_decal_command(cmd)
     end
 	if radius == nil then
 		radius = 15
-	elseif radius < 0 then
+	elseif radius <= 0 then
 		return
 	end
 
