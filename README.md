@@ -20,7 +20,7 @@ cd decals
 License
 -------
 
-Copyright (c) 2023 **[ZwerOxotnik](https://github.com/ZwerOxotnik)**
+Copyright (c) 2023-2024 **[ZwerOxotnik](https://github.com/ZwerOxotnik)**
 
 Licensed under the MIT licence.
 

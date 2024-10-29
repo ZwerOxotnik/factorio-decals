@@ -18,8 +18,8 @@ local players_decals
 
 
 --#region Constants
-local destroy_render  = rendering.destroy
-local is_valid_render = rendering.is_valid
+local get_rendered_by_id = rendering.get_object_by_id
+
 
 ---@type table<string, string>
 local DECALS_PATH = {}
@@ -66,7 +66,7 @@ end
 ---@param receiver table?
 ---@return boolean
 function check_local_and_global_data(local_data, global_data_name, receiver)
-	if (type(global_data_name) == "string" and local_data ~= global.decals[global_data_name]) then
+	if (type(global_data_name) == "string" and local_data ~= storage.decals[global_data_name]) then
 		local message = string.format("!WARNING! Desync has been detected in __%s__ %s. Please report and send log files to %s and try to load your game again or use /sync", script.mod_name, "mod_data[\"" .. global_data_name .. "\"]", "ZwerOxotnik")
 		log(message)
 		if game and (game.is_multiplayer() == false or receiver) then
@@ -100,11 +100,11 @@ M.remove_invalid_data = function()
 		local player_decals = players_decals[player_index]
 		local is_player_valid = (player and player.valid)
 		for i=#decals, 1, -1 do
-			local decal_id = decals[i]
+			local rendered = get_rendered_by_id(decals[i])
 			if not is_player_valid then
-				destroy_render(decal_id)
-			elseif not is_valid_render(decal_id) then
-				destroy_render(decal_id)
+				rendered.destroy()
+			elseif not rendered.valid then
+				rendered.destroy()
 				table.remove(player_decals, i)
 			end
         end
@@ -118,7 +118,8 @@ M.remove_decals = function()
 	if script.mod_name == "level" then
 		for player_index, decals in pairs(players_decals) do
 			for i=1, #decals do
-				rendering.destroy(decals[i])
+				local rendered = get_rendered_by_id(decals[i])
+				rendered.destroy()
 			end
 			players_decals[player_index] = {}
 		end
@@ -135,7 +136,8 @@ function M.remove_all_player_decals(player_index)
 	local decals = players_decals[player_index]
 	if not decals then return end
 	for i=1, #decals do
-		destroy_render(decals[i])
+		local rendered = get_rendered_by_id(decals[i])
+		rendered.destroy()
 	end
 	players_decals[player_index] = nil
 end
@@ -154,17 +156,15 @@ M.remove_player_decals = function(player, radius)
 	if not decals then return end
 	local player_surface  = player.surface
 	local player_position = player.position
-	local get_render_target  = rendering.get_target
-	local get_render_surface = rendering.get_surface
 	for i=#decals, 1, -1 do
-		local decal_id = decals[i]
-		if not is_valid_render(decal_id) then
+		local rendered = get_rendered_by_id(decals[i])
+		if not rendered.valid then
 			table.remove(decals, i)
-		elseif player_surface == get_render_surface(decal_id) then
-			local render_target = get_render_target(decals[i])
+		elseif player_surface == rendered.surface then
+			local render_target = rendered.target
 			local distance = get_distance(player_position, render_target.position)
 			if distance <= radius then
-				destroy_render(decal_id)
+				rendered.destroy()
 				table.remove(decals, i)
 			end
 		end
@@ -186,7 +186,7 @@ local sprite_data = {
 ---@param decal_path string?
 M.draw_decal = function(player, decal_path)
 	if not decal_path then return end
-	if not game.is_valid_sprite_path(decal_path) then
+	if not helpers.is_valid_sprite_path(decal_path) then
 		log(string.format("%s is invalid sprite path", decal_path))
 		return
 	end
@@ -199,13 +199,14 @@ M.draw_decal = function(player, decal_path)
 		player_decals = new_table
 	elseif #player_decals >= 50 then
 		local id = table.remove(player_decals, 1)
-		destroy_render(id)
+		local rendered = get_rendered_by_id(id)
+		rendered.destroy()
 	end
 
 	sprite_data.sprite = decal_path
 	sprite_data.surface = player.surface
 	sprite_data.target = player.position
-	player_decals[#player_decals+1] = rendering.draw_sprite(sprite_data)
+	player_decals[#player_decals+1] = rendering.draw_sprite(sprite_data).id
 end
 
 
@@ -227,7 +228,7 @@ M.switch_decals_gui = function(player)
 		return
 	end
 
-	main_frame = screen.add{type = "frame", name = "decals_list_frame", direction = "vertical"} --style = "borderless_frame"
+	main_frame = screen.add{type = "frame", name = "decals_list_frame", direction = "vertical"} --style = "tips_and_tricks_notification_frame"
 	main_frame.location = {x = 300, y = 70}
 	main_frame.style.maximal_height = 500
 
@@ -247,7 +248,7 @@ M.switch_decals_gui = function(player)
 	top_flow.add{
 		hovered_sprite = "utility/close_black",
 		clicked_sprite = "utility/close_black",
-		sprite = "utility/close_white",
+		sprite = "utility/close",
 		style = "frame_action_button",
 		type = "sprite-button",
 		name = "DECALS_MOD_close"
@@ -265,7 +266,7 @@ M.switch_decals_gui = function(player)
 	local flow = {type = "flow", name = ""}
 	local button = {type = "sprite-button", name = "spawn_decal", tooltip = "", sprite = ""}
 	for decal_name, decal_path in pairs(DECALS_PATH) do
-		if not game.is_valid_sprite_path(decal_path) then
+		if not helpers.is_valid_sprite_path(decal_path) then
 			goto continue
 		end
 		flow.name = decal_name
@@ -430,17 +431,15 @@ local function remove_near_decal_command(cmd)
 			goto continue
 		end
 
-		local get_render_target = rendering.get_target
-		local get_render_surface = rendering.get_surface
 		for i=#decals, 1, -1 do
-			local decal_id = decals[i]
-			if not is_valid_render(decal_id) then
+			local rendered = get_rendered_by_id(decals[i])
+			if not rendered.valid then
 				table.remove(decals, i)
-			elseif player_surface == get_render_surface(decal_id) then
-				local render_target = get_render_target(decals[i])
+			elseif player_surface == rendered.surface then
+				local render_target = rendered.target
 				local distance = get_distance(player_position, render_target.position)
 				if distance <= radius then
-					destroy_render(decal_id)
+					rendered.destroy()
 					table.remove(decals, i)
 				end
 			end
@@ -471,13 +470,13 @@ end
 
 
 M.link_data = function()
-	mod_data = global.decals
+	mod_data = storage.decals
 	players_decals = mod_data.players_decals
 end
 
 M.update_global_data = function()
-	global.decals = global.decals or {}
-	mod_data = global.decals
+	storage.decals = storage.decals or {}
+	mod_data = storage.decals
     ---@type table<uint, uint64>
 	mod_data.players_decals = mod_data.players_decals or {}
 
@@ -496,7 +495,8 @@ M._on_configuration_changed = function(event)
 	if version < 2.1 then
 		if mod_data.players_decal then
 			for _, decal_id in pairs(mod_data.players_decal) do
-				destroy_render(decal_id)
+				local rendered = get_rendered_by_id(decal_id)
+				rendered.destroy()
 			end
 			mod_data.players_decal = nil
 		end
